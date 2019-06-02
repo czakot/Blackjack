@@ -2,6 +2,8 @@ package blackjack;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,43 +23,44 @@ public class Blackjack {
         ServerSocket ss = new ServerSocket(PORT);
       )
     {
-      Client[] client = {new Client(ss), new Client(ss)};
+//      Client[] client = {new Client(ss), new Client(ss)};
+      ArrayList<Client> clients = new ArrayList<>();
 
-      int i = client.length;
-      while (i-- != 0) {
-        client[i].setName(client[i].receive());
-        initializeHand(client[i]);
+      for (int i = 0; i < 2; ++i) {
+        Client client = new Client(ss);
+        client.setName(client.receive());
+        initializeHand(client);
+        clients.add(client);
       }
       
       Boolean anybodyInGame;
       do {
         anybodyInGame = false;
-        i = client.length;
-        while (i-- != 0) {
-          if (client[i].getState() == ClientState.IN_GAME) {
-              if (client[i].receive().equals("hit")) {  // receive client command: hit/stick
-                addCardToHandAndSetState(client[i]);
+        for (Iterator<Client> it = clients.iterator(); it.hasNext(); ) {
+          Client client = it.next();
+          if (client.getState() == ClientState.IN_GAME) {
+              if (client.receive().equals("hit")) {  // receive client command: hit/stick
+                addCardToHandAndSetState(client);
               } else { // cmd.equals("stick"
-                client[i].setState(ClientState.STICK);
+                client.setState(ClientState.STICK);
               }
           }
-          switch (client[i].getState()) {
+          switch (client.getState()) {
             case IN_GAME:
             case STICK:
-              client[i].send(Integer.toString(client[i].getInHand()));
+              client.send(Integer.toString(client.getInHand()));
               break;
             case BUST:
-              client[i].send(ClientState.BUST.getValue());
+              client.send(ClientState.BUST.getValue());
               break;
           }
-          anybodyInGame = (anybodyInGame || (client[i].getState() == ClientState.IN_GAME));
+          anybodyInGame = (anybodyInGame || (client.getState() == ClientState.IN_GAME));
         }
       } while (anybodyInGame);
       
-      String winnerName = evaluateWinner(client);
-      i = client.length;
-      while (i-- != 0) {
-        client[i].send(winnerName);
+      String winnerName = evaluateWinner(clients);
+        for (Iterator<Client> it = clients.iterator(); it.hasNext(); ) {
+        it.next().send(winnerName);
       }
     } catch (IOException ex) {
       Logger.getLogger(Blackjack.class.getName()).log(Level.SEVERE, null, ex);
@@ -80,15 +83,14 @@ public class Blackjack {
     }
   }
   
-  private static String evaluateWinner(Client[] client) {
+  private static String evaluateWinner(ArrayList<Client> clients) {
     String name = "Dealer/None";
     int maxInHand = 0;
-    int i = client.length;
-    while (i-- != 0) {
-      Client cl = client[i];
-      if (cl.getState() != ClientState.BUST && cl.getInHand() >= maxInHand) {
-        maxInHand = cl.getInHand();
-        name = cl.getName();
+        for (Iterator<Client> it = clients.iterator(); it.hasNext(); ) {
+      Client client = it.next();
+      if (client.getState() != ClientState.BUST && client.getInHand() > maxInHand) {
+        maxInHand = client.getInHand();
+        name = client.getName();
       }
     }
     return name;
