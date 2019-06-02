@@ -28,38 +28,33 @@ public class Blackjack {
         client[i].setName(client[i].receive());
         initializeHand(client[i]);
       }
-      System.out.println("nev1: " + client[0].getName()+ "   nev2: " + client[1].getName());
       
-      String winnerName = null;
-      
-      while (winnerName == null) {
-        Boolean nobodyInGame = null;
+      Boolean anybodyInGame;
+      do {
+        anybodyInGame = false;
         i = client.length;
         while (i-- != 0) {
-          nobodyInGame = true;
-          Client cl = client[i];
-          switch (cl.getState()) {
-            case IN_GAME:
-              nobodyInGame = false;
-              if (cl.receive().equals("hit")) {  // receive client command: hit/stick
-                addCardToHand(cl);
+          if (client[i].getState() == ClientState.IN_GAME) {
+              if (client[i].receive().equals("hit")) {  // receive client command: hit/stick
+                addCardToHandAndSetState(client[i]);
               } else { // cmd.equals("stick"
-                cl.setState(ClientState.STICK);
+                client[i].setState(ClientState.STICK);
               }
-              break;
+          }
+          switch (client[i].getState()) {
+            case IN_GAME:
             case STICK:
-              cl.send(Integer.toString(cl.getInHand()));
+              client[i].send(Integer.toString(client[i].getInHand()));
               break;
             case BUST:
-              cl.send(ClientState.BUST.getValue());
+              client[i].send(ClientState.BUST.getValue());
               break;
           }
+          anybodyInGame = (anybodyInGame || (client[i].getState() == ClientState.IN_GAME));
         }
-        if (nobodyInGame) {
-          winnerName = evaluateWinner(client);
-        }
-      }
+      } while (anybodyInGame);
       
+      String winnerName = evaluateWinner(client);
       i = client.length;
       while (i-- != 0) {
         client[i].send(winnerName);
@@ -75,16 +70,13 @@ public class Blackjack {
     client.send(Integer.toString(cardValueDrawn));
   }
   
-  private static void addCardToHand(Client client) {
+  private static void addCardToHandAndSetState(Client client) {
     int cardValueDrawn = drawCard();
     int inHand = client.getInHand() + cardValueDrawn;
     client.setInHand(inHand);
     client.send(Integer.toString(cardValueDrawn));
-    if (inHand <= 21) {
-      client.send(Integer.toString(inHand));
-    } else {
+    if (inHand > 21) {
       client.setState(ClientState.BUST);
-      client.send(ClientState.BUST.getValue());
     }
   }
   
@@ -94,7 +86,7 @@ public class Blackjack {
     int i = client.length;
     while (i-- != 0) {
       Client cl = client[i];
-      if (cl.getState() != ClientState.BUST && cl.getInHand() > maxInHand) {
+      if (cl.getState() != ClientState.BUST && cl.getInHand() >= maxInHand) {
         maxInHand = cl.getInHand();
         name = cl.getName();
       }
